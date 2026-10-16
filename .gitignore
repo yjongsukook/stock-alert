@@ -1,0 +1,4 @@
+.env
+state/
+watchlist.json
+__pycache__/

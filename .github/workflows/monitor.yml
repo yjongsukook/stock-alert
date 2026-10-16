@@ -1,0 +1,58 @@
+name: 주가 감시
+
+on:
+  schedule:
+    # GitHub cron은 UTC 기준이며 5~20분 늦게 시작될 수 있어 장 시작보다 일찍 띄워 둡니다.
+    - cron: "30 23 * * 0-4"   # 08:30 KST 국내장 + 09시 브리핑 (~14:15까지)
+    - cron: "30 4 * * 1-5"    # 13:30 KST 국내장 후반 (대기하다 앞 작업이 끝나면 바로 이어서 시작)
+    - cron: "0 13 * * 1-5"    # 22:00 KST 미국장 전반
+    - cron: "0 18 * * 1-5"    # 03:00 KST 미국장 후반 (대기하다 이어서 시작)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 방식"
+        type: choice
+        options: [monitor, briefing, check]
+        default: briefing
+
+# 감시 작업은 한 번에 하나만 돌고, 다음 작업은 앞 작업이 끝날 때까지 기다립니다.
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      WATCHLIST: ${{ secrets.WATCHLIST }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 알림 중복을 막기 위한 상태(오늘 이미 보낸 알림 등)를 작업 사이에 이어받음
+      - uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      - name: 실행
+        run: |
+          mkdir -p state
+          case "${{ inputs.mode || 'monitor' }}" in
+            briefing) python monitor.py --briefing-now ;;
+            check)    python monitor.py --check ;;
+            *)        python monitor.py --budget 345 ;;
+          esac
+
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: state
+          key: state-${{ github.run_id }}-${{ github.run_attempt }}

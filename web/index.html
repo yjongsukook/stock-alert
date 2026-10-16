@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>내 주식 알림</title>
+<style>
+  :root { --bg:#f2f4f6; --card:#fff; --text:#191f28; --sub:#8b95a1; --up:#f04452; --down:#3182f6; --line:#e5e8eb; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#101013; --card:#1b1b1f; --text:#e8eaed; --sub:#8b95a1; --line:#2b2b31; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+  main { max-width:560px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .meta { color:var(--sub); font-size:13px; margin-bottom:20px; }
+  section { background:var(--card); border-radius:16px; padding:8px 20px; margin-bottom:16px; }
+  h2 { font-size:15px; color:var(--sub); font-weight:600; margin:12px 0 4px; }
+  .row { display:flex; align-items:center; padding:14px 0; border-top:1px solid var(--line); }
+  h2 + .row { border-top:none; }
+  .name { flex:1; font-weight:600; }
+  .name small { display:block; color:var(--sub); font-weight:400; font-size:12px; margin-top:2px; }
+  .price { text-align:right; font-variant-numeric:tabular-nums; }
+  .ratio { display:block; font-size:13px; margin-top:2px; }
+  .up { color:var(--up); } .down { color:var(--down); }
+  .hot { font-size:11px; padding:2px 6px; border-radius:6px; background:var(--up); color:#fff; margin-left:6px; vertical-align:2px; }
+  .hot.down { background:var(--down); }
+  .empty { color:var(--sub); padding:16px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>내 주식 알림</h1>
+  <div class="meta" id="meta">불러오는 중…</div>
+  <section><h2>보유 · 관심 종목</h2><div id="stocks"></div></section>
+  <section><h2>금 · 코인 · 환율</h2><div id="assets"></div></section>
+</main>
+<script>
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cls = r => r > 0 ? "up" : r < 0 ? "down" : "";
+const pct = r => (r > 0 ? "+" : "") + r.toFixed(2) + "%";
+
+function row(item, sub) {
+  const hot = Math.abs(item.ratio) >= 3 ? `<span class="hot ${cls(item.ratio)}">${item.ratio > 0 ? "급등" : "급락"}</span>` : "";
+  return `<div class="row"><div class="name">${esc(item.name)}${hot}<small>${esc(sub)}</small></div>
+    <div class="price">${esc(item.price)}<span class="ratio ${cls(item.ratio)}">${pct(item.ratio)}</span></div></div>`;
+}
+
+async function load() {
+  try {
+    const d = await (await fetch("/api/data")).json();
+    document.getElementById("stocks").innerHTML = d.stocks.length
+      ? d.stocks.map(s => row(s, `${s.code.split(".")[0]} · ${s.open ? "장중" : "장마감"}`)).join("")
+      : `<div class="empty">watchlist.json 에 종목을 추가하세요</div>`;
+    document.getElementById("assets").innerHTML = d.assets.map(a => row(a, "")).join("");
+    document.getElementById("meta").textContent = "업데이트 " + new Date().toLocaleTimeString("ko-KR") + " · 30초마다 갱신";
+  } catch (e) {
+    document.getElementById("meta").textContent = "시세를 불러오지 못했습니다";
+  }
+}
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>
