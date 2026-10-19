@@ -1,0 +1,21 @@
+name: 예약 실행 유지
+
+# 공개 저장소는 60일간 커밋이 없으면 GitHub가 예약 실행을 멈추므로 매월 빈 커밋을 남깁니다.
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "keepalive $(date -u +%Y-%m)"
+          git push
